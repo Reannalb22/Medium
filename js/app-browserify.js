@@ -18,7 +18,30 @@ var APP_ID = 'UG6BEIIX5wt4ZnHsvtylJj7lyoaaOtOvXyHGR2b5',
 
 	Parse.initialize(APP_ID,JS_KEY)
 
-//model??? collection??? whatsssupppppp. 
+//----------------Model & Collection------------------
+
+var MediumModel = Backbone.Model.extend({
+	url: "https://api.parse.com/1/classes/Story",
+
+	parseHeaders: {
+		"X-parse-Application-Id": APP_ID,
+		"X-Parse-REST-API-Key": REST_API_KEY
+	}
+})
+
+var MediumCollection = Backbone.Collection.extend({
+	url: "https://api.parse.com/1/classes/Story",
+
+	parseHeaders: {
+		"X-parse-Application-Id": APP_ID,
+		"X-Parse-REST-API-Key": REST_API_KEY
+	},
+
+	parse: function(responseData){
+		return responseData.results
+	}
+})
+
 
 //---------------------VIEWS--------------------------
 
@@ -42,16 +65,25 @@ var Header = React.createClass({
 	}
 })
 
+var SignUpDialog = React.createClass({
+	render: function(){
+		return <h4>Share Your Story. Create Your Free Account Below.</h4>
+	}
+})
+
 var SignupButton = React.createClass({
-	
+
+	_getSignup: function(e){
+		location.hash = 'signup'
+	},
 
 	render: function(){
-		return <button>Don't have a User Name? Sign Up!</button>
+		return <button onClick = {this._getSignup}>Don't have a User Name?<br/>Sign Up!</button>
 	}
 })
 
 var LoginBox = React.createClass({
-	_getLoginClick: function(event){
+	_getLogin: function(event){
 		if(event.which===13){
 			var password = event.target.value,
 				username = this.refs.usernameInput.getDOMNode().value
@@ -74,7 +106,8 @@ var SignupView = React.createClass({
 	render: function(){
 		return (
 			<div id = "signUpView">
-				<Header /> 
+				<Header />
+				<SignUpDialog />
 				<SignBox sendInfo={this.props.sendInfo}/>
 			</div>
 		)
@@ -100,6 +133,97 @@ var SignBox = React.createClass({
 	}
 })
 
+var HomeView = React.createClass({
+	componentDidMount: function(){
+		var self = this
+		var update = function(){self.forceUpdate()}
+		this.props.stories.on('sync change', update)
+	},
+
+	// componentWillUnmount: function(){
+	// 	var self = this
+	// 	this.props.stories
+	// },
+
+	render: function(){
+		return(
+			<div id="homeView">
+				<HomeHeader />
+				<TestWriteStory processStory = {this.props.processStory} stories = {this.props.stories}/>
+				<StoryBox stories = {this.props.stories} />
+			</div>
+
+				
+		)
+	}
+})
+			
+var HomeHeader= React.createClass({
+	render: function(){
+		return (
+			<div id="homeDiv">
+				<h5>Medium</h5>
+				<div id= "buttonDiv">
+					<button>WriteStory</button>
+					<button>Profile</button>
+					<button>Log Out</button>
+				</div>
+			</div>
+		)
+	}
+})
+
+var TestWriteStory = React.createClass({
+	_keyPressHandler: function(event){
+		if(event.which === 13){
+			var textBox = event.target
+			var newStory = textBox.innerHTML
+			textBox.innerHTML = ''
+			this.props.processStory(newStory)
+		}
+	},
+
+	render: function(){
+		return(
+			<div
+				onKeyPress={this._keyPressHandler} contentEditable = "true" id="testWriteStory"
+				>
+			</div>
+			)
+	}
+})
+
+var StoryBox = React.createClass({
+	_renderStory: function(storyObj){
+		return <Story key={storyObj.id} story={storyObj} />
+	},
+
+	render: function(){
+		var storyArray = this.props.stories
+		console.log(storyArray)
+		window.storyArray = storyArray
+
+		return(
+			<div id="storyBox">
+				{storyArray.map(this._renderStory)}
+			</div>
+		)
+		
+	}
+})
+
+var Story = React.createClass({
+	render: function(){
+		// window.storyy = this.props.story 
+		return(
+			<div className="story">
+				<p>{this.props.story.get('title')}</p>
+				<p>{this.props.story.get('blogPost')}</p>
+			</div>
+		)
+	}
+})
+
 //need to add click event on button to go to sign up page; defer sign up and login pages!
 
 
@@ -113,7 +237,19 @@ var MediumRouter = Backbone.Router.extend({
 		
 	},
 
-	processInfo: function(username,password){
+	processLogin: function(){
+		Parse.User.logIn(username,password).then(
+			function(){
+				alert("Thanks for logging in " + username)
+				location.hash = "home"
+			},
+			function(){
+				alert('Password is not valid. If you do not have an account, please sign up.')
+			})
+	},
+
+
+	processSignup: function(username,password){
 		var newUser = new Parse.User()
 		newUser.set('username',username)
 		newUser.set('password',password)
@@ -126,30 +262,57 @@ var MediumRouter = Backbone.Router.extend({
 	// 	function(error))
 	},
 
+	processStory: function(title,blog){
+		var storyModel = new MediumModel(),
+			modelParams = {
+				title: title,
+				blogPost: blog,
+				userid: Parse.User.current().id
+			}
+			storyModel.set(modelParams)
+			this.sc.add(storyModel)
+			storyModel.save(null, {
+				headers: storyModel.parseHeaders
+			})
+	},
+
 	showLogin: function(){
 		console.log('showing login view')
-		React.render(<LoginView sendInfo = {this.processInfo} />, document.querySelector("#container"))
+		React.render(<LoginView sendInfo = {this.processLogin} />, document.querySelector("#container"))
 	},
 
 	showSignUp: function(){
 		console.log('showing signup')
-		React.render(<SignupView sendInfo = {this.processInfo} />, document.querySelector("#container"))
+		React.render(<SignupView sendInfo = {this.processSignup} />, document.querySelector("#container"))
 	},
 
 	showHome: function(){
 		console.log('going home')
-
+		var paramObject = {
+			userid: Parse.User.current().id
+			},
+			stringifiedParamObject = JSON.stringify(paramObject)
+		this.sc.fetch({
+			headers: this.sc.parseHeaders,
+			processData:true,
+			data: {
+				where: stringifiedParamObject
+			}
+		})
+		React.render(
+			<HomeView processStory = {this.processStory.bind(this)} stories={this.sc}/>, document.querySelector("#container"))
 	},
 
+
 	initialize: function(){
-		if (!Parse.User.current()) {
-			location.hash = "login"
-		}
+		this.sc = new MediumCollection()
+		location.hash = 'login'
+		Backbone.history.start()
 	}
 })
 
 var mr = new MediumRouter()
-Backbone.history.start()
+
 
 // 	showSignUp: function(username,password){
 
