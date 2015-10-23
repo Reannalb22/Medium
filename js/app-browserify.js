@@ -29,6 +29,7 @@ var LoginView = React.createClass({
 			<div id = "loginView">
 				<Header /> 
 				<LoginBox sendInfo={this.props.sendInfo}/>
+				<SignupButton />
 			</div>
 		)
 	}
@@ -38,6 +39,14 @@ var Header = React.createClass({
 
 	render: function(){
 		return <h1>Medium</h1>
+	}
+})
+
+var SignupButton = React.createClass({
+	
+
+	render: function(){
+		return <button>Don't have a User Name? Sign Up!</button>
 	}
 })
 
@@ -60,6 +69,38 @@ var LoginBox = React.createClass({
 	}
 })
 
+var SignupView = React.createClass({
+
+	render: function(){
+		return (
+			<div id = "signUpView">
+				<Header /> 
+				<SignBox sendInfo={this.props.sendInfo}/>
+			</div>
+		)
+	}
+})
+
+var SignBox = React.createClass({
+	_getLoginClick: function(event){
+		if(event.which===13){
+			var password = event.target.value,
+				username = this.refs.usernameInput.getDOMNode().value
+			this.props.sendInfo(username,password)
+		}
+	},
+
+	render: function(){
+		return (
+			<div id = "signUpBox">
+				<input type = "text" placeholder = "username" ref = "usernameInput" />
+				<input type = "password" placeholder = "password" onKeyPress = {this._getLoginClick} />
+			</div>
+		)
+	}
+})
+
+//need to add click event on button to go to sign up page; defer sign up and login pages!
 
 
 //----------------ROUTER-------------
@@ -67,7 +108,7 @@ var LoginBox = React.createClass({
 var MediumRouter = Backbone.Router.extend({
 	routes:{
 		'home': 'showHome',
-		// 'signup': 'showSignUp',
+		'signup': 'showSignUp',
 		'login': 'showLogin'
 		
 	},
@@ -90,8 +131,14 @@ var MediumRouter = Backbone.Router.extend({
 		React.render(<LoginView sendInfo = {this.processInfo} />, document.querySelector("#container"))
 	},
 
+	showSignUp: function(){
+		console.log('showing signup')
+		React.render(<SignupView sendInfo = {this.processInfo} />, document.querySelector("#container"))
+	},
+
 	showHome: function(){
 		console.log('going home')
+
 	},
 
 	initialize: function(){
